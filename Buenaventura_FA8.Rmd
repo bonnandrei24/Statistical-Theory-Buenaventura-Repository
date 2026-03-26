@@ -1,0 +1,157 @@
+---
+title: "Invisibility Cloak: Independent Samples t-test"
+author: "Bonn Andrei M. Buenaventura"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(ggplot2)
+library(dplyr)
+library(car)      
+library(ggdist)   
+library(tidyquant)
+library(effsize)
+library(knitr)
+```
+
+# Description
+
+This dataset examines whether wearing an invisibility cloak affects the number of mischievous acts committed.
+
+# Hypotheses
+
+Null Hypothesis ($H_0$): $\mu_1 = \mu_2$  
+(There is no significant difference in mischievous acts between the two groups)
+
+Alternative Hypothesis ($H_1$): $\mu_1 \ne \mu_2$  
+(There is a significant difference in mischievous acts between the two groups)
+
+---
+
+# Load Data
+
+```{r}
+df <- read.csv("Invisibility Cloak.csv")
+
+df$Cloak <- factor(df$Cloak, levels = c(0, 1), labels = c("Without a cloak", "With a cloak"))
+```
+
+---
+
+# Assumption Checks
+
+## Assumption 1: Measurement Level
+
+The dependent variable (Mischief) is measured at a continuous level.
+
+## Assumption 2: Independent Groups
+
+The independent variable (Cloak) consists of two categorical, independent groups.
+
+## Assumption 3: Independence of Observations
+
+Each participant belongs to only one group, ensuring independence.
+
+---
+
+## Raincloud Plot
+
+```{r}
+ggplot(df, aes(x = Cloak, y = Mischief, fill = Cloak)) +
+  stat_halfeye(adjust = .5, width = .6, .width = 0, justification = -.3, point_colour = NA) + 
+  geom_point(size = 1.5, alpha = .3, position = position_jitter(seed = 1, width = .1)) + 
+  geom_boxplot(width = .10, outlier.shape = NA, alpha = 0.5) +
+  coord_flip() + 
+  theme_tq() +
+  scale_fill_tq() +
+  labs(title = "Raincloud Plot of Mischievous Acts", x = "Group", y = "Mischief Score") +
+  theme(legend.position = "none")
+```
+
+This plot shows the distribution and spread of the data across groups.
+
+---
+
+## Assumption 4: Outliers
+
+```{r}
+ggplot(df, aes(x = Cloak, y = Mischief, fill = Cloak)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Boxplot for Outlier Detection", y = "Mischief Acts", x = "Group")
+```
+
+Interpretation: No extreme outliers are observed based on visual inspection.
+
+---
+
+## Assumption 5: Normality
+
+```{r}
+sw_test <- df %>%
+  group_by(Cloak) %>%
+  summarise(W = shapiro.test(Mischief)$statistic,
+            p = shapiro.test(Mischief)$p.value)
+
+kable(sw_test, caption = "Test of Normality (Shapiro-Wilk)", digits = 3)
+```
+
+Interpretation: Since p > .05, the data are approximately normally distributed.
+
+---
+
+## Assumption 6: Homogeneity of Variance
+
+```{r}
+lev_test <- leveneTest(Mischief ~ Cloak, data = df)
+kable(lev_test, caption = "Test of Equality of Variances (Levene's)", digits = 3)
+```
+
+Interpretation: Since p > .05, equal variances can be assumed.
+
+---
+
+# Computation: Independent Samples T-Test
+
+```{r}
+t_results <- t.test(Mischief ~ Cloak, data = df, var.equal = TRUE)
+
+t_table <- data.frame(
+  t = t_results$statistic,
+  df = t_results$parameter,
+  p = t_results$p.value,
+  Mean_Diff = diff(rev(t_results$estimate)),
+  Lower_CI = t_results$conf.int[1],
+  Upper_CI = t_results$conf.int[2]
+)
+
+kable(t_table, caption = "Independent Samples T-Test Results", digits = 3)
+```
+
+Interpretation: The p-value is greater than 0.05, indicating no significant difference between the groups.
+
+---
+
+# APA Style Report
+
+An independent-samples t-test was conducted to determine if there were differences in mischievous acts between participants with and without an invisibility cloak. There were no outliers, and the assumption of normality was met (p > .05). Homogeneity of variance was satisfied (p = .468).
+
+Participants with a cloak (M = 5.00, SD = 1.65) did not significantly differ from those without a cloak (M = 3.75, SD = 1.91), t(22) = -1.713, p = .101, 95% CI [-2.76, 0.26].
+
+Thus, we fail to reject the null hypothesis and conclude that wearing an invisibility cloak does not significantly affect mischievous behavior.
+
+# Conclusion
+
+The analysis shows that although there is a slight difference in mean mischievous acts, the invisibility cloak does not have a statistically significant effect.
+
+
+---
+
+# Reference
+
+Field, A. P. (2017). *Discovering Statistics Using IBM SPSS Statistics* (5th ed.). Sage.
