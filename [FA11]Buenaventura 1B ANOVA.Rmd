@@ -1,0 +1,148 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+---
+title: "Data Analysis Report: One-Way ANOVA (PlantGrowth)"
+author: "Bonn Andrei M. Buenaventura"
+date: "2026-04-24"
+output:
+  word_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(ggplot2)
+library(car)
+library(dplyr)
+library(effectsize)
+
+data("PlantGrowth")
+```
+
+# Introduction
+
+A one-way Analysis of Variance (ANOVA) is used to determine whether there are statistically significant differences between the means of three or more independent groups.
+
+# Dataset and Problem
+
+The dataset used is *PlantGrowth*, which examines plant weights under different treatment conditions.
+
+* Independent Variable: group (ctrl, trt1, trt2)
+* Dependent Variable: weight
+
+The objective is to determine whether the mean plant weight differs across treatment groups.
+
+# Hypotheses
+
+* **H0**: μ₁ = μ₂ = μ₃ (all group means are equal)
+* **HA**: At least one group mean is different
+
+# Checking of Assumptions
+
+## Assumption #1: Continuous Dependent Variable
+
+**Remark:** The dependent variable *weight* is continuous.
+
+## Assumption #2: Categorical Independent Variable
+
+**Remark:** The independent variable *group* consists of three independent categories (ctrl, trt1, trt2).
+
+## Assumption #3: Independence of Observations
+
+**Remark:** Observations are assumed independent since each plant is measured separately.
+
+## Assumption #4: No Significant Outliers
+
+```{r}
+ggplot(PlantGrowth, aes(x = group, y = weight, fill = group)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Weight Distribution by Group",
+       x = "Group",
+       y = "Weight")
+```
+
+**Remark:** No significant outliers were detected based on visual inspection of boxplots.
+
+## Assumption #5: Normality
+
+```{r}
+normality <- PlantGrowth %>%
+  group_by(group) %>%
+  summarise(p_value = shapiro.test(weight)$p.value)
+
+normality
+```
+
+**Remark:** Data is approximately normally distributed for each group since all Shapiro-Wilk test p-values are greater than 0.05.
+
+## Assumption #6: Homogeneity of Variance
+
+```{r}
+leveneTest(weight ~ group, data = PlantGrowth)
+```
+
+**Remark:** Homogeneity of variances is satisfied if p > 0.05.
+
+# Descriptive Statistics
+
+```{r}
+desc <- PlantGrowth %>%
+  group_by(group) %>%
+  summarise(
+    N = n(),
+    Mean = mean(weight),
+    SD = sd(weight)
+  )
+
+desc
+```
+
+# Computation
+
+## One-Way ANOVA
+
+```{r}
+res.aov <- aov(weight ~ group, data = PlantGrowth)
+anova_result <- summary(res.aov)
+
+F_value <- anova_result[[1]][["F value"]][1]
+p_value <- anova_result[[1]][["Pr(>F)"]][1]
+
+anova_result
+```
+
+## Effect Size
+
+```{r}
+eta <- eta_squared(res.aov)
+eta_value <- eta$Eta2[1]
+
+eta
+```
+
+## Post Hoc Test
+
+```{r}
+tukey <- TukeyHSD(res.aov)
+tukey
+```
+
+# APA Reporting
+
+A one-way ANOVA was conducted to determine whether plant weight differed across treatment groups (ctrl, trt1, trt2).
+
+There were no outliers, as assessed by boxplot inspection; data were normally distributed for each group (Shapiro-Wilk test, p > .05); and homogeneity of variances was satisfied (Levene’s test, p > .05).
+
+There was a statistically significant difference in mean plant weight between groups,
+F(2, 27) = `r round(F_value, 3)`,
+p = `r round(p_value, 4)`,
+η² = `r round(eta_value, 3)`.
+
+Post hoc comparisons using Tukey’s HSD test indicated which groups differed significantly.
+
+Therefore, the null hypothesis was rejected.
