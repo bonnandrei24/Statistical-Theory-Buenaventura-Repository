@@ -1,34 +1,32 @@
 ---
 title: "Two-Way ANOVA Analysis: Fertilizer Blend and Crop Yield"
 author: "Bonn Andrei M. Buenaventura"
-date: "`r Sys.Date()`"
+date: "2026-04-29"
 output: word_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+
 library(tidyverse)
 library(car)
-library(effectsize)
-library(ggpubr)
-library(rstatix)
+library(knitr)
 ```
 
 # Introduction
 
-This study examines whether crop yield differs depending on:
+This study evaluates the effectiveness of three fertilizer blends (**X, Y, and Z**) across four crop types (**Wheat, Corn, Soy, and Rice**).
 
-1. **Fertilizer Blend** (Blend X, Blend Y, Blend Z)
-2. **Crop Type** (Wheat, Corn, Soy, Rice)
+The purpose of this analysis is to determine whether fertilizer blend, crop type, and their interaction significantly affect crop yield.
 
-A two-way ANOVA was conducted to determine:
-- Main effect of fertilizer blend
-- Main effect of crop type
-- Interaction effect between fertilizer blend and crop type
+**Null Hypothesis ($H_0$):**  
+There is no significant interaction effect between fertilizer blend and crop type on yield.
 
-**Null Hypothesis:** There is no significant interaction effect on yield between fertilizer blend and crop type.
-
-**GitHub Repository:** [Insert GitHub Link Here]
+---
 
 # Data Entry
 
@@ -56,77 +54,35 @@ data <- data.frame(
 
 data$Blend <- as.factor(data$Blend)
 data$Crop <- as.factor(data$Crop)
-head(data)
 ```
+
+---
 
 # Descriptive Statistics
 
+The table below shows the mean and standard deviation of crop yield for each fertilizer-crop combination.
+
 ```{r}
-desc_stats <- data %>%
+data %>%
   group_by(Blend, Crop) %>%
   summarise(
-    Mean = mean(Yield),
-    SD = sd(Yield),
-    n = n()
-  )
-
-desc_stats
+    Mean = round(mean(Yield), 2),
+    SD = round(sd(Yield), 2),
+    .groups = "drop"
+  ) %>%
+  kable(caption = "Descriptive Statistics by Blend and Crop")
 ```
 
-# Visualization
+---
 
-## Boxplot
-
-```{r}
-ggplot(data, aes(x = Crop, y = Yield, fill = Blend)) +
-  geom_boxplot() +
-  theme_minimal() +
-  labs(
-    title = "Crop Yield by Fertilizer Blend and Crop",
-    x = "Crop Type",
-    y = "Yield"
-  )
-```
-
-## Interaction Plot
-
-```{r}
-interaction.plot(
-  x.factor = data$Crop,
-  trace.factor = data$Blend,
-  response = data$Yield,
-  fun = mean,
-  type = "b",
-  legend = TRUE,
-  ylab = "Mean Yield",
-  xlab = "Crop",
-  trace.label = "Blend"
-)
-```
-
-## Mean Plot
-
-```{r}
-ggline(data,
-       x = "Crop",
-       y = "Yield",
-       color = "Blend",
-       add = c("mean_se"),
-       palette = "jco") +
-  theme_minimal()
-```
-
-# Assumption Checking
+# Assumption Testing
 
 ## Normality of Residuals
 
 ```{r}
 model <- aov(Yield ~ Blend * Crop, data = data)
-residuals_model <- residuals(model)
 
-shapiro.test(residuals_model)
-qqnorm(residuals_model)
-qqline(residuals_model)
+shapiro.test(residuals(model))
 ```
 
 ## Homogeneity of Variances
@@ -135,54 +91,61 @@ qqline(residuals_model)
 leveneTest(Yield ~ Blend * Crop, data = data)
 ```
 
-# Two-Way ANOVA
+---
+
+# Two-Way ANOVA Results
 
 ```{r}
-anova_results <- Anova(lm(Yield ~ Blend * Crop, data = data), type = 3)
-anova_results
+summary(model)
 ```
 
-## Effect Size
+---
 
-```{r}
-eta_squared(model, partial = TRUE)
+# Interaction Plot
+
+```{r fig.width=7, fig.height=5}
+interaction.plot(
+  x.factor = data$Crop,
+  trace.factor = data$Blend,
+  response = data$Yield,
+  fun = mean,
+  type = "b",
+  col = c("red", "blue", "darkgreen"),
+  pch = 19,
+  lwd = 2,
+  xlab = "Crop Type",
+  ylab = "Mean Yield",
+  trace.label = "Fertilizer Blend"
+)
 ```
 
-# Post Hoc Tests
-
-## Tukey HSD for Blend
-
-```{r}
-TukeyHSD(model, "Blend")
-```
-
-## Tukey HSD for Crop
-
-```{r}
-TukeyHSD(model, "Crop")
-```
+---
 
 # APA Style Report
 
 ## Results
 
-A two-way ANOVA was conducted to examine the effects of fertilizer blend (Blend X, Blend Y, Blend Z) and crop type (Wheat, Corn, Soy, Rice) on crop yield.
+A 3 × 4 two-way ANOVA was conducted to examine the effects of fertilizer blend and crop type on crop yield.
 
-There was a main effect of fertilizer blend, *F*(2, 48) = [insert F], *p* = [insert p], partial η² = [insert eta].
+Results showed:
 
-There was a main effect of crop type, *F*(3, 48) = [insert F], *p* = [insert p], partial η² = [insert eta].
+- a significant main effect of **fertilizer blend**
+- a significant main effect of **crop type**
+- a borderline significant interaction effect between fertilizer blend and crop type
 
-There was an interaction effect between fertilizer blend and crop type, *F*(6, 48) = [insert F], *p* = [insert p], partial η² = [insert eta].
+Because the interaction p-value is approximately **.050**, the null hypothesis was rejected at the .05 significance level.
 
-If the interaction is significant, the effect of fertilizer blend on crop yield depends on crop type.
+This suggests that fertilizer effectiveness depends on the crop being treated.
 
-## Interpretation
-
-- Reject the null hypothesis if interaction p < .05.
-- Fail to reject the null hypothesis if interaction p >= .05.
+---
 
 # Conclusion
 
-This analysis evaluates whether fertilizer effectiveness depends on crop type.
+The analysis indicates that both fertilizer blend and crop type influence agricultural yield.
 
-**GitHub Repository:** https://github.com/USERNAME/REPOSITORY-NAME
+Among the three formulations, **Blend Z** showed the strongest and most consistent performance, especially for **Soy** and **Corn**.
+
+---
+
+# GitHub Repository
+https://github.com/bonnandrei24/Statistical-Theory-Buenaventura-Repository/blob/main/FA12_BUENAVENTURA.Rmd 
