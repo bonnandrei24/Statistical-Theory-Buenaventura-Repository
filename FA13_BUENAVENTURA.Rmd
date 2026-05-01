@@ -1,0 +1,249 @@
+---
+title: "Two-Way Mixed ANOVA Analysis: Cholesterol Over Time"
+author: "Bonn Andrei M. Buenaventura"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(tidyverse)
+library(rstatix)
+library(ggpubr)
+library(ez)
+library(car)
+library(emmeans)
+library(knitr)
+library(kableExtra)
+```
+
+# Introduction
+
+This study examined whether cholesterol levels differed between two
+brands of margarine across three time points:
+
+- Before treatment
+- After 4 weeks
+- After 8 weeks
+
+A two-way mixed ANOVA was conducted.
+
+- **Between-subject factor:** Margarine Brand
+- **Within-subject factor:** Time
+
+## Null Hypothesis
+
+There is no significant difference in cholesterol levels between the two
+brands of margarine over the three time points.
+
+---
+
+# Dataset
+
+```{r}
+chol_data <- data.frame(
+  ID = 1:18,
+  Before = c(6.42, 6.76, 6.56, 4.80, 8.43, 7.49, 8.05, 5.05, 5.77,
+             3.91, 6.77, 6.44, 6.17, 7.67, 7.34, 6.85, 5.13, 5.73),
+  After4weeks = c(5.83, 6.20, 5.83, 4.27, 7.71, 7.12, 7.25, 4.63, 5.31,
+                  3.70, 6.15, 5.59, 5.56, 7.11, 6.84, 6.40, 4.52, 5.13),
+  After8weeks = c(5.75, 6.13, 5.71, 4.15, 7.67, 7.05, 7.10, 4.67, 5.33,
+                  3.66, 5.96, 5.64, 5.51, 6.96, 6.82, 6.29, 4.45, 5.17),
+  Margarine = c("B","B","B","A","B","A","B","A","B",
+                "A","B","B","A","A","A","B","A","B")
+)
+
+head(chol_data)
+```
+
+---
+
+# Data Preparation
+
+```{r}
+chol_data$Margarine <- as.factor(chol_data$Margarine)
+
+data_long <- chol_data %>%
+  pivot_longer(
+    cols = c(Before, After4weeks, After8weeks),
+    names_to = "Time",
+    values_to = "Cholesterol"
+  )
+
+data_long$Time <- factor(
+  data_long$Time,
+  levels = c("Before", "After4weeks", "After8weeks")
+)
+
+data_long$ID <- as.factor(data_long$ID)
+
+head(data_long)
+```
+
+---
+
+# Descriptive Statistics
+
+```{r}
+desc_stats <- data_long %>%
+  group_by(Margarine, Time) %>%
+  summarise(
+    Mean = mean(Cholesterol),
+    SD = sd(Cholesterol),
+    N = n(),
+    .groups = "drop"
+  )
+
+kable(desc_stats, digits = 2)
+```
+
+---
+
+# Visualization
+
+## Boxplot
+
+```{r}
+ggplot(data_long,
+       aes(x = Time, y = Cholesterol, fill = Margarine)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(
+    title = "Cholesterol Levels by Margarine Brand Across Time",
+    x = "Time",
+    y = "Cholesterol"
+  )
+```
+
+## Interaction Plot
+
+```{r}
+ggplot(data_long,
+       aes(x = Time,
+           y = Cholesterol,
+           color = Margarine,
+           group = Margarine)) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1.2) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+  theme_minimal() +
+  labs(
+    title = "Interaction Plot of Margarine Brand and Time",
+    x = "Time",
+    y = "Mean Cholesterol"
+  )
+```
+
+---
+
+# Assumption Checking
+
+## Normality Test
+
+```{r}
+normality <- data_long %>%
+  group_by(Margarine, Time) %>%
+  shapiro_test(Cholesterol)
+
+kable(normality, digits = 4)
+```
+
+## Homogeneity of Variance
+
+```{r}
+leveneTest(Cholesterol ~ Margarine * Time, data = data_long)
+```
+
+---
+
+# Two-Way Mixed ANOVA
+
+```{r}
+anova_results <- ezANOVA(
+  data = data_long,
+  dv = Cholesterol,
+  wid = ID,
+  within = Time,
+  between = Margarine,
+  type = 3,
+  detailed = TRUE
+)
+
+anova_results
+```
+
+---
+
+# Post Hoc Tests
+
+## Time Comparisons
+
+```{r}
+pairwise_time <- data_long %>%
+  pairwise_t_test(
+    Cholesterol ~ Time,
+    paired = TRUE,
+    p.adjust.method = "bonferroni"
+  )
+
+kable(pairwise_time, digits = 4)
+```
+
+## Margarine Comparisons
+
+```{r}
+pairwise_brand <- data_long %>%
+  pairwise_t_test(
+    Cholesterol ~ Margarine,
+    paired = FALSE,
+    p.adjust.method = "bonferroni"
+  )
+
+kable(pairwise_brand, digits = 4)
+```
+
+---
+
+# Estimated Marginal Means
+
+```{r}
+model_lm <- lm(Cholesterol ~ Margarine * Time, data = data_long)
+emmeans(model_lm, ~ Margarine * Time)
+```
+
+---
+
+# APA Report
+
+## Results
+
+A two-way mixed ANOVA was conducted to determine the effects of margarine
+brand and time on cholesterol levels.
+
+The analysis revealed:
+
+- Main effect of Margarine: see ANOVA output
+- Main effect of Time: see ANOVA output
+- Margarine × Time interaction: see ANOVA output
+
+### APA Format
+
+Replace with actual values:
+
+> A two-way mixed ANOVA revealed a significant/non-significant main
+effect of time, *F*(df1, df2) = XX.XX, *p* = .XXX.
+
+> The main effect of margarine brand was significant/non-significant,
+*F*(df1, df2) = XX.XX, *p* = .XXX.
+
+> The interaction between margarine brand and time was
+significant/non-significant, *F*(df1, df2) = XX.XX, *p* = .XXX.
+
+---
+
+# Conclusion
+
+The null hypothesis was rejected/not rejected depending on the obtained
+p-values.
+
+#GitHub Repository Link
